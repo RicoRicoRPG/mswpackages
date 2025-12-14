@@ -1,0 +1,75 @@
+@Logic
+script InventorySampleLogic extends Logic
+
+	property string ParentUIPath = "/ui/DefaultGroup"
+
+	property Entity InventoryEntity = nil
+
+	property Entity InventoryToolEntity = nil
+
+	@ExecSpace("Server")
+	method void RequestAddStaminaItem(integer periodSeconds)
+		if _AdminLogic:IsAdmin(senderUserId) == false then
+			return
+		end
+		
+		local createParam = ItemCreateParamStruct()
+		createParam:Set(500001, 1, periodSeconds)
+		
+		_ItemFactoryLogic:TryAddItem(senderUserId, createParam, ItemCreateResultStruct())
+	end
+
+	@ExecSpace("ClientOnly")
+	@EventSender("Service", "InputService")
+	handler HandleKeyDownEvent(KeyDownEvent event)
+		 local key = event.key
+		
+		if _UserService.LocalPlayer.PlayerInventory.InitSyncEnd == false then
+			return
+		end
+		
+		if key == KeyboardKey.I then
+			if isvalid(self.InventoryEntity) == false then
+				local uiParent = _EntityService:GetEntityByPath(self.ParentUIPath)
+				self.InventoryEntity = _SpawnService:SpawnByModelId(_EntryService:GetModelIdByName("UIInventory"), "Inventory", Vector3.zero, uiParent)
+				self.InventoryEntity.Enable = false
+			end
+			
+			self.InventoryEntity.UIInventory:Toggle()
+		elseif key == KeyboardKey.O and _AdminLogic:IsAdminLocalPlayer() then
+			if isvalid(self.InventoryToolEntity) == false then
+				local uiParent = _EntityService:GetEntityByPath(self.ParentUIPath)
+				self.InventoryToolEntity = _SpawnService:SpawnByModelId(_EntryService:GetModelIdByName("UIGMInventoryTool"), "Inventory", Vector3.zero, uiParent)
+				self.InventoryToolEntity.Enable = false
+			end
+			
+			self.InventoryToolEntity.UIGMInventoryTool:Toggle()
+		elseif key == KeyboardKey.Alpha1 then
+			self:RequestAddStaminaItem(nil)
+		elseif key == KeyboardKey.Alpha2 then
+			local minute = 1
+			local endDataSeconds =  (_DateTimeLogic:GetTimeElapsed() + minute * 60 * 1000) / 1000
+			self:RequestAddStaminaItem(endDataSeconds)
+		end
+	end
+
+	@ExecSpace("ServerOnly")
+	@EventSender("Service", "UserService")
+	handler HandleUserEnterEvent(UserEnterEvent event)
+		 local UserId = event.UserId
+		
+		if _DataLoadLogic:IsLoadSuccessAndWait() == false then
+			return
+		end
+		
+		if _AdminLogic:IsAdmin(UserId) == false then
+			return
+		end
+		
+		local user = _UserService:GetUserEntityByUserId(UserId)
+		if user.PlayerJob:IsJobLockedAll() then
+			user.PlayerJob:UnlockJob(_PlayerJobCodeEnum.Adele)
+		end
+	end
+
+end
